@@ -10,11 +10,12 @@ feature:
   trenta: []
 
 phone_os:
-  default: [android]
+  # default: [android]
   android: []
   ios: []
 
 phone:
+  default: [iphone]
   pixel: [phone_os.android]
   iphone: [phone_os.ios]
 
@@ -27,3 +28,7 @@ locale:
   japan: []
   uk: []
   china: []
+
+# default: [
+#   phone_os.
+# ]

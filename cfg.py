@@ -1,6 +1,8 @@
 import sys
 import yaml
 
+from collections import defaultdict
+
 
 __config_data = None
 __config_usage = None
@@ -8,7 +10,21 @@ __config_enabled = None
 __config_defaults_enabled = None
 
 
-def crawl(name, deps, definitions, seen=None):
+def is_valid_dep_format(dep):
+    return (isinstance(dep, str)
+       and  len(dep.split('.')) in range(1, 3)
+    )
+
+
+def parse_dep(dep, default_category=''):
+    parts = dep.split('.')
+    category = default_category
+    if len(parts) == 2:
+        category, dep = parts
+    return (category, dep)
+
+
+def crawl(category, definitions, deps, seen=None):
     """
     Crawls the definitions.yaml deplists
 
@@ -17,17 +33,24 @@ def crawl(name, deps, definitions, seen=None):
       android: [utils]
       ios: [tools]
 
-    crawl(name=android, deps=[utils], definitions=device { ... })
+    crawl(deps=[utils], definitions=device { ... })
     """
 
     seen = seen or set()
     for dep in filter(lambda dep: dep not in seen, deps):
+        assert is_valid_dep_format(dep), "Not a valid dep format"
+
+        # Parse dep for the composed parts of of `category.dep`
+        # If it's only `dep`, then category=default_category.
+        # If it's a different category, then we change the context and swap
+        # over to a different category.
+        category, dep = parse_dep(dep, default_category=category)
         seen.add(dep)
-        crawl(dep, definitions[dep], definitions, seen)
+        crawl(category, definitions, definitions[category][dep], seen)
     return seen
 
 
-def find_enabled(deps, usage):
+def find_enabled(definitions, usage):
     """
     - use deps to get categorical definitions
 
@@ -36,8 +59,8 @@ def find_enabled(deps, usage):
     """
 
     deptable = dict()
-    for category, deplist in usage.items():
-        result = crawl(name=category, deps=deplist, definitions=deps[category])
+    for category, deps in usage.items():
+        result = crawl(category=category, definitions=definitions, deps=deps)
         deptable[category] = result
 
     return deptable

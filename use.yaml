@@ -1,4 +1,4 @@
 # phone: pixel
-phone_os: [android]
+# phone_os: []  # NOTE: specifying phone_os: [] will lead to overriding defaults.
 hardware: [gpu]
 locale: [japan]

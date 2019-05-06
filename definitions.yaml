@@ -4,13 +4,13 @@
 
 
 feature:
-  default: [tall]
   tall: []
   grande: []
   venti: []
   trenta: []
 
 phone_os:
+  default: [android]
   android: []
   ios: []
 

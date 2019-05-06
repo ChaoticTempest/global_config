@@ -62,11 +62,20 @@ def find_enabled(definitions, usage):
     return enabled
 
 
-def find_default_usages(definitions):
+# deprecated
+def _find_default_usages_inside_category(definitions):
     usages = dict()
     for category, deps in definitions.items():
         if 'default'  in deps:
             usages[category] = deps['default']
+    return usages
+
+
+def find_default_usages(definitions):
+    usages = dict()
+    for dep in definitions.get('default', []):
+        category, dep = parse_dep(dep)
+        usages[category] = [dep]
     return usages
 
 

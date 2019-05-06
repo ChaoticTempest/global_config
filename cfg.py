@@ -24,7 +24,7 @@ def parse_dep(dep, default_category=''):
     return (category, dep)
 
 
-def crawl(category, definitions, deps, seen=None):
+def crawl(category, definitions, deps, enabled):
     """
     Crawls the definitions.yaml deplists
 
@@ -36,18 +36,15 @@ def crawl(category, definitions, deps, seen=None):
     crawl(deps=[utils], definitions=device { ... })
     """
 
-    seen = seen or set()
-    for dep in filter(lambda dep: dep not in seen, deps):
+    for dep in filter(lambda dep: dep not in enabled[category], deps):
         assert is_valid_dep_format(dep), "Not a valid dep format"
 
-        # Parse dep for the composed parts of of `category.dep`
-        # If it's only `dep`, then category=default_category.
-        # If it's a different category, then we change the context and swap
-        # over to a different category.
+        # Parse dep for the composed parts of of `category.dep` If it's only
+        # `dep`, then category=default_category. Otherwise, it's a different
+        # category, so we change context to a different category.
         category, dep = parse_dep(dep, default_category=category)
-        seen.add(dep)
-        crawl(category, definitions, definitions[category][dep], seen)
-    return seen
+        yield (category, dep)
+        yield from crawl(category, definitions, definitions[category][dep], enabled)
 
 
 def find_enabled(definitions, usage):
@@ -57,13 +54,12 @@ def find_enabled(definitions, usage):
     usage.yaml:
     device: [android]   # category: deplist
     """
+    enabled = defaultdict(set)
+    for (category, deps) in usage.items():
+        for (category, dep) in crawl(category, definitions, deps, enabled):
+            enabled[category].add(dep)
 
-    deptable = dict()
-    for category, deps in usage.items():
-        result = crawl(category=category, definitions=definitions, deps=deps)
-        deptable[category] = result
-
-    return deptable
+    return enabled
 
 
 def find_default_usages(definitions):

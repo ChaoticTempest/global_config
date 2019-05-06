@@ -79,12 +79,12 @@ def fmt(s, *args, **kwargs):
 
 def cfg(**configs):
     def inner(fn):
-        original_name = fn.__name__
+        fn_old_name = fn.__name__
 
         # Save the function renamed in the callframe:
-        new_name = "_{}".format(fn.__name__)
+        fn_new_name = "_{}".format(fn.__name__)
         callframe = sys._getframe(1)
-        callframe.f_locals[new_name] = fn
+        callframe.f_locals[fn_new_name] = fn
 
         # TODO: temprorary. Only getting the first item:
         category, option = next(iter(configs.items()))
@@ -99,11 +99,11 @@ def cfg(**configs):
             return fn
 
         # Feature is not enabled. Returned the cached function instead:
-        if original_name in callframe.f_locals:
-            return callframe.f_locals[original_name]
+        if fn_old_name in callframe.f_locals:
+            return callframe.f_locals[fn_old_name]
 
         # Not a valid function: return a function that throws on call:
         return lambda *args, **kwargs: (_ for _ in ()).throw(
-            Exception(fmt("Cannot call cfg({}='{}') invalidated function `{}`", category, option, original_name)))
+            Exception(fmt("Cannot call cfg({}='{}') invalidated function `{}`", category, option, fn_old_name)))
 
     return inner

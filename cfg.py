@@ -1,7 +1,6 @@
 import sys
 import yaml
 
-EMPTYSET = set()
 
 __config_data = None
 __config_usage = None
@@ -9,8 +8,7 @@ __config_enabled = None
 __config_defaults_enabled = None
 
 
-
-def crawl(name, deps, graph, seen=None):
+def crawl(name, deps, deflist, seen=None):
     """
     Crawls the definitions.yaml deplists
 
@@ -19,20 +17,19 @@ def crawl(name, deps, graph, seen=None):
       android: [utils]
       ios: [tools]
 
-    crawl(name=android, deps=[utils], graph=device { ... })
+    crawl(name=android, deps=[utils], deflist=device { ... })
     """
 
     seen = seen or set()
-    deps = filter(lambda dep: dep not in seen, deps)
-    for dep in deps:
+    for dep in filter(lambda dep: dep not in seen, deps):
         seen.add(dep)
-        crawl(dep, graph[dep], graph, seen)
+        crawl(dep, deflist[dep], deflist, seen)
     return seen
 
 
-def parse_deps(deps, usage):
+def find_enabled(deps, usage):
     """
-    - use deps to get categorical graph
+    - use deps to get categorical deflist
 
     usage.yaml:
     device: [android]   # category: deplist
@@ -40,13 +37,13 @@ def parse_deps(deps, usage):
 
     deptable = dict()
     for category, deplist in usage.items():
-        result = crawl(name=category, deps=deplist, graph=deps[category])
+        result = crawl(name=category, deps=deplist, deflist=deps[category])
         deptable[category] = result
 
     return deptable
 
 
-def find_defaults(deflist):
+def find_default_usages(deflist):
     usages = dict()
     for category, deps in deflist.items():
         if 'default'  in deps:
@@ -68,13 +65,9 @@ def load_global_config(definitions, usage):
     with open(usage, 'r') as stream:
         __config_usage = yaml.load(stream)
 
-    default_usages = find_defaults(__config_data)
-    __config_defaults_enabled = parse_deps(__config_data, default_usages)
-    __config_enabled = parse_deps(__config_data, __config_usage)
-
-
-def fmt(s, *args, **kwargs):
-    return s.format(*args, **kwargs)
+    default_usages = find_default_usages(__config_data)
+    __config_defaults_enabled = find_enabled(__config_data, default_usages)
+    __config_enabled = find_enabled(__config_data, __config_usage)
 
 
 def cfg(**configs):
@@ -103,7 +96,11 @@ def cfg(**configs):
             return callframe.f_locals[fn_old_name]
 
         # Not a valid function: return a function that throws on call:
-        return lambda *args, **kwargs: (_ for _ in ()).throw(
-            Exception(fmt("Cannot call cfg({}='{}') invalidated function `{}`", category, option, fn_old_name)))
+        return lambda *args, **kwargs: (_ for _ in ()).throw(Exception(
+            "Potentially missing all cases for @cfg defined functions. "
+            "Cannot call not enabled function:\n\n"
+            f"  @cfg({category}='{option}')\n"
+            f"  def {fn_old_name}(...):\n"
+        ))
 
     return inner

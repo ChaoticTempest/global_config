@@ -8,7 +8,7 @@ __config_enabled = None
 __config_defaults_enabled = None
 
 
-def crawl(name, deps, deflist, seen=None):
+def crawl(name, deps, definitions, seen=None):
     """
     Crawls the definitions.yaml deplists
 
@@ -17,19 +17,19 @@ def crawl(name, deps, deflist, seen=None):
       android: [utils]
       ios: [tools]
 
-    crawl(name=android, deps=[utils], deflist=device { ... })
+    crawl(name=android, deps=[utils], definitions=device { ... })
     """
 
     seen = seen or set()
     for dep in filter(lambda dep: dep not in seen, deps):
         seen.add(dep)
-        crawl(dep, deflist[dep], deflist, seen)
+        crawl(dep, definitions[dep], definitions, seen)
     return seen
 
 
 def find_enabled(deps, usage):
     """
-    - use deps to get categorical deflist
+    - use deps to get categorical definitions
 
     usage.yaml:
     device: [android]   # category: deplist
@@ -37,15 +37,15 @@ def find_enabled(deps, usage):
 
     deptable = dict()
     for category, deplist in usage.items():
-        result = crawl(name=category, deps=deplist, deflist=deps[category])
+        result = crawl(name=category, deps=deplist, definitions=deps[category])
         deptable[category] = result
 
     return deptable
 
 
-def find_default_usages(deflist):
+def find_default_usages(definitions):
     usages = dict()
-    for category, deps in deflist.items():
+    for category, deps in definitions.items():
         if 'default'  in deps:
             usages[category] = deps['default']
     return usages

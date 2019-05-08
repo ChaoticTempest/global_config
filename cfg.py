@@ -2,6 +2,7 @@ import sys
 import yaml
 
 from collections import defaultdict
+from syntax import _is_
 
 
 __config_data = None
@@ -96,9 +97,13 @@ def load_global_config(definitions, usage):
     default_usages = find_default_usages(__config_data)
     __config_defaults_enabled = find_enabled(__config_data, default_usages)
     __config_enabled = find_enabled(__config_data, __config_usage)
+    __config_enabled = {
+        **__config_defaults_enabled,
+        **__config_enabled,
+    }
 
 
-def cfg(**configs):
+def cfg(*operation, **config):
     def inner(fn):
         fn_old_name = fn.__name__
 
@@ -107,16 +112,13 @@ def cfg(**configs):
         callframe = sys._getframe(1)
         callframe.f_locals[fn_new_name] = fn
 
-        # TODO: temprorary. Only getting the first item:
-        category, option = next(iter(configs.items()))
-
+        # TODO: combine into one single config:
         # Handle default enabled:
         enabled = __config_enabled
-        if category not in __config_enabled:
-            enabled = __config_defaults_enabled
+        # if category not in __config_enabled:
+        #     enabled = __config_defaults_enabled
 
-        # feature="x":  x is enabled
-        if option in enabled.get(category, set()):
+        if _is_(*operation, **config)(enabled):
             return fn
 
         # Feature is not enabled. Returned the cached function instead:
@@ -125,10 +127,11 @@ def cfg(**configs):
 
         # Not a valid function: return a function that throws on call:
         return lambda *args, **kwargs: (_ for _ in ()).throw(Exception(
-            "Potentially missing all cases for @cfg defined functions. "
-            "Cannot call not enabled function:\n\n"
-            f"  @cfg({category}='{option}')\n"
+            "Function not enabled. Potentially missing all cases for @cfg defined functions:\n\n"
+            # f"  @cfg({category}='{option}')\n"
             f"  def {fn_old_name}(...):\n"
         ))
 
     return inner
+
+

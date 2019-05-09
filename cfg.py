@@ -64,7 +64,7 @@ def find_enabled(definitions, usage):
 
 
 # deprecated
-def _find_default_usages_inside_category(definitions):
+def __find_default_usages_inside_category(definitions):
     usages = dict()
     for category, deps in definitions.items():
         if 'default'  in deps:
@@ -91,15 +91,14 @@ def load_global_config_from_file(definitions, usages):
 
     load_global_config(__config_data, __config_usage)
 
-def load_global_config(definitions, usage):
+def load_global_config(definitions, usages):
     global __config_defaults_enabled
     global __config_enabled
-
     assert __config_enabled is None, "Reloading global config disallowed"
 
-    default_usages = find_default_usages(__config_data)
-    __config_defaults_enabled = find_enabled(__config_data, default_usages)
-    __config_enabled = find_enabled(__config_data, __config_usage)
+    default_usages = find_default_usages(definitions)
+    __config_defaults_enabled = find_enabled(definitions, default_usages)
+    __config_enabled = find_enabled(definitions, usages)
     __config_enabled = {
         **__config_defaults_enabled,
         **__config_enabled,

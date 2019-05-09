@@ -1,7 +1,6 @@
 
 
 def is_enabled(config, enabled):
-    print(config)
     category, option = config
 
     if isinstance(option, list):
@@ -35,32 +34,42 @@ class ConfigOp(object):
         return ConfigOperable
 
 
-class MultiConfigOp():
+class MultiConfigOp(object):
     def __init__(self, *args, **kwargs):
         raise NotImplementedError()
 
     @staticmethod
     def assert_multi_predicates(operations, configs):
-        assert len(operations) + len(configs) > 0
-        assert all(isinstance(op, ConfigOp) for op in operations)
-        assert all(isinstance(option, str) for option in configs.values())
+        assert len(operations) + len(configs) > 0, "Need to provide at least one operation or config"
+        assert all(isinstance(op, ConfigOp) for op in operations), "Not all operations are a ConfigOp type"
+        assert all(isinstance(option, str) for option in configs.values()), "Expected config values to be of type str"
 
     @staticmethod
     def new(check_condition):
         class MultiConfigOperable(ConfigOp):
             def __init__(self, *operations, **configs):
                 MultiConfigOp.assert_multi_predicates(operations, configs)
-                self.operations = operations
-                self.configs = configs
+                self.operations = operations if len(operations) > 0 else None
+                self.configs = configs if len(configs) > 0 else None
 
             def __call__(self, enabled):
-                are_ops_ok = check_condition(op(enabled) for op in self.operations)
-                are_configs_ok = check_condition(is_enabled(config, enabled) for config in self.configs.items())
+                are_ops_ok = True
+                are_configs_ok = True
+
+                if self.operations is not None:
+                    are_ops_ok = check_condition(
+                        op(enabled) for op in self.operations)
+
+                if self.configs is not None:
+                    are_configs_ok = check_condition(
+                        is_enabled(config, enabled) for config in self.configs.items())
+
                 return are_ops_ok and are_configs_ok
 
         return MultiConfigOperable
 
 _is_ = ConfigOp.new(lambda val: val)
+Is = _is_
 Not = ConfigOp.new(lambda val: not val) # `not` is not a function
 All = MultiConfigOp.new(all)
 Any = MultiConfigOp.new(any)

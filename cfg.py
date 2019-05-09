@@ -2,7 +2,7 @@ import sys
 import yaml
 
 from collections import defaultdict
-from syntax import _is_
+from global_config.syntax import _is_
 
 
 __config_data = None
@@ -80,19 +80,22 @@ def find_default_usages(definitions):
     return usages
 
 
-def load_global_config(definitions, usage):
+def load_global_config_from_file(definitions, usages):
     global __config_data
     global __config_usage
-    global __config_defaults_enabled
-    global __config_enabled
-
-    assert __config_data is None, "Reloading global config disallowed"
-
     with open(definitions, 'r') as stream:
         __config_data = yaml.load(stream)
 
-    with open(usage, 'r') as stream:
+    with open(usages, 'r') as stream:
         __config_usage = yaml.load(stream)
+
+    load_global_config(__config_data, __config_usage)
+
+def load_global_config(definitions, usage):
+    global __config_defaults_enabled
+    global __config_enabled
+
+    assert __config_enabled is None, "Reloading global config disallowed"
 
     default_usages = find_default_usages(__config_data)
     __config_defaults_enabled = find_enabled(__config_data, default_usages)
@@ -112,12 +115,7 @@ def cfg(*operation, **config):
         callframe = sys._getframe(1)
         callframe.f_locals[fn_new_name] = fn
 
-        # TODO: combine into one single config:
-        # Handle default enabled:
         enabled = __config_enabled
-        # if category not in __config_enabled:
-        #     enabled = __config_defaults_enabled
-
         if _is_(*operation, **config)(enabled):
             return fn
 
@@ -125,13 +123,14 @@ def cfg(*operation, **config):
         if fn_old_name in callframe.f_locals:
             return callframe.f_locals[fn_old_name]
 
-        # Not a valid function: return a function that throws on call:
+        # Not an invalid function: return a function that throws on call:
         return lambda *args, **kwargs: (_ for _ in ()).throw(Exception(
             "Function not enabled. Potentially missing all cases for @cfg defined functions:\n\n"
-            # f"  @cfg({category}='{option}')\n"
             f"  def {fn_old_name}(...):\n"
         ))
 
     return inner
 
-
+# populdate cfg with helper functions:
+cfg.load_global_config = load_global_config
+cfg.load_global_config_from_file = load_global_config_from_file

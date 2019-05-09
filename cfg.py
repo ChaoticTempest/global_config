@@ -108,7 +108,7 @@ def cfg(*operation, **config):
         fn_old_name = fn.__name__
 
         # Save the function renamed in the callframe:
-        fn_new_name = "_{}".format(fn.__name__)
+        fn_new_name = f"_{fn.__name__}"
         callframe = sys._getframe(1)
         callframe.f_locals[fn_new_name] = fn
 

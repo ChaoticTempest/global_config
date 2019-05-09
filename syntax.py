@@ -1,6 +1,7 @@
 
 
 def is_enabled(config, enabled):
+    print(config)
     category, option = config
 
     if isinstance(option, list):
@@ -21,8 +22,7 @@ class ConfigOp(object):
     def new(check_condition):
         class ConfigOperable(ConfigOp):
             def __init__(self, *operation, **config):
-                assert ((len(operation) == 1 and len(config) == 0)
-                    or  (len(operation) == 0 and len(config) == 1))
+                assert len(operation) + len(config) == 1
 
                 self.operation = operation[0] if len(operation) == 1 else None
                 self.config = next(iter(config.items())) if len(config) == 1 else None
@@ -35,14 +35,13 @@ class ConfigOp(object):
         return ConfigOperable
 
 
-
 class MultiConfigOp():
     def __init__(self, *args, **kwargs):
         raise NotImplementedError()
 
     @staticmethod
     def assert_multi_predicates(operations, configs):
-        assert len(operations) > 0 or len(configs) > 0
+        assert len(operations) + len(configs) > 0
         assert all(isinstance(op, ConfigOp) for op in operations)
         assert all(isinstance(option, str) for option in configs.values())
 
@@ -56,7 +55,7 @@ class MultiConfigOp():
 
             def __call__(self, enabled):
                 are_ops_ok = check_condition(op(enabled) for op in self.operations)
-                are_configs_ok = check_condition(is_enabled(config, enabled) for config in self.configs)
+                are_configs_ok = check_condition(is_enabled(config, enabled) for config in self.configs.items())
                 return are_ops_ok and are_configs_ok
 
         return MultiConfigOperable

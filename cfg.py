@@ -4,6 +4,9 @@ import yaml
 from collections import defaultdict
 from global_config.syntax import _is_
 
+# Cache of functions declared from using @cfg
+__function_cache = dict()
+
 
 __config_data = None
 __config_usage = None
@@ -109,13 +112,18 @@ def cfg(*operation, **config):
     def inner(fn):
         fn_old_name = fn.__name__
 
-        # Save the function renamed in the callframe:
-        fn_new_name = f"_{fn.__name__}"
-        callframe = sys._getframe(1)
-        callframe.f_locals[fn_new_name] = fn
-
         enabled = __config_enabled
-        if _is_(*operation, **config)(enabled):
+        is_function_enabled = _is_(*operation, **config)
+        fn_new_name = f"{fn_old_name}{repr(is_function_enabled)}"
+        __function_cache[fn_new_name] = fn
+
+        callframe = sys._getframe(1)
+
+        # Disabled saving fn into callframe. Might reenable in future. Old
+        # functions can be accessed in more closely monitored __function_cache
+        # callframe.f_locals[fn_new_name] = fn
+
+        if is_function_enabled(enabled):
             return fn
 
         # Feature is not enabled. Returned the cached function instead:

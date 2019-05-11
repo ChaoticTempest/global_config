@@ -1,3 +1,6 @@
+def repr_config(config):
+    category, option = config
+    return f"{category}={option}"
 
 
 def is_enabled(config, enabled):
@@ -18,7 +21,7 @@ class ConfigOp(object):
         raise NotImplementedError()
 
     @staticmethod
-    def new(check_condition):
+    def new(check_condition, name: str=None):
         class ConfigOperable(ConfigOp):
             def __init__(self, *operation, **config):
                 assert len(operation) + len(config) == 1
@@ -30,6 +33,18 @@ class ConfigOp(object):
                 if self.operation is not None:
                     return check_condition(self.operation(enabled))
                 return check_condition(is_enabled(self.config, enabled))
+
+            def __repr__(self):
+                args = []
+                if self.operation is not None:
+                    args.append(repr(self.operation))
+                if self.config is not None:
+                    args.append(repr_config(self.config))
+
+                s = name if name is not None else ""
+                s = f"{s}({', '.join(args)})"
+
+                return s
 
         return ConfigOperable
 
@@ -45,7 +60,7 @@ class MultiConfigOp(object):
         assert all(isinstance(option, str) for option in configs.values()), "Expected config values to be of type str"
 
     @staticmethod
-    def new(check_condition):
+    def new(check_condition, name: str=None):
         class MultiConfigOperable(ConfigOp):
             def __init__(self, *operations, **configs):
                 MultiConfigOp.assert_multi_predicates(operations, configs)
@@ -66,10 +81,25 @@ class MultiConfigOp(object):
 
                 return are_ops_ok and are_configs_ok
 
+            def __repr__(self):
+                args = []
+                if self.operations is not None:
+                    args.append(', '.join(repr(op) for op in self.operations))
+                if self.configs is not None:
+                    args.append(', '.join(repr_config(cf) for cf in self.configs.items()))
+
+                s = name if name is not None else ""
+                s = f"{s}({','.join(args)})"
+                return s
+
         return MultiConfigOperable
 
-_is_ = ConfigOp.new(lambda val: val)
-Is = _is_
-Not = ConfigOp.new(lambda val: not val) # `not` is not a function
-All = MultiConfigOp.new(all)
-Any = MultiConfigOp.new(any)
+
+# Used internally and should not be imported anywhere:
+_is_ = ConfigOp.new(lambda val: val, None)
+
+
+Is = ConfigOp.new(lambda val: val, name='Is')
+Not = ConfigOp.new(lambda val: not val, name='Not') # `not` is not a function
+All = MultiConfigOp.new(all, name='All')
+Any = MultiConfigOp.new(any, name='Any')

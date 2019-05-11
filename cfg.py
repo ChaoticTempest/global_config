@@ -2,7 +2,7 @@ import sys
 import yaml
 
 from collections import defaultdict
-from global_config.syntax import _is_
+from global_config.syntax import _is_, Bypass
 
 # Cache of functions declared from using @cfg
 __function_cache = dict()
@@ -12,6 +12,44 @@ __config_data = None
 __config_usage = None
 __config_enabled = None
 __config_defaults_enabled = None
+
+
+# Bypassers
+__config_bypassers = dict()
+
+
+def pop_bypass(bypass_or_category):
+    global __config_bypassers
+
+    key = None
+    if isinstance(bypass_or_category, Bypass):
+        key = bypass_or_category.category
+    elif isinstance(bypass_or_category, str):
+        key = bypass_or_category
+
+    bypass = __config_bypassers.pop(key, None)
+    if bypass is None:
+        raise Exception(f"Trying to remove invalid bypass: {bypass_or_category}")
+    return bypass
+
+
+def add_bypass(bypass):
+    global __config_bypassers
+    def __add_bypass(bypass):
+        if bypass.category in __config_bypassers:
+            raise Exception(f"Cannot add bypasser with the same config category: {bypass.category}=...")
+
+        __config_bypassers[bypass.category] = bypass
+
+
+    assert isinstance(bypass, list) or isinstance(bypass, Bypass)
+
+    bypassers = bypass
+    if not isinstance(bypass, list):
+        bypassers = [bypass]
+
+    for bypass in bypassers:
+        __add_bypass(bypass)
 
 
 def is_valid_dep_format(dep):
@@ -94,6 +132,7 @@ def load_global_config_from_file(definitions, usages):
 
     load_global_config(__config_data, __config_usage)
 
+
 def load_global_config(definitions, usages):
     global __config_defaults_enabled
     global __config_enabled
@@ -113,6 +152,8 @@ def cfg(*operation, **config):
         fn_old_name = fn.__name__
 
         enabled = __config_enabled
+        bypasses = __config_bypassers
+
         is_function_enabled = _is_(*operation, **config)
         fn_new_name = f"{fn_old_name}{repr(is_function_enabled)}"
         __function_cache[fn_new_name] = fn
@@ -123,7 +164,7 @@ def cfg(*operation, **config):
         # functions can be accessed in more closely monitored __function_cache
         # callframe.f_locals[fn_new_name] = fn
 
-        if is_function_enabled(enabled):
+        if is_function_enabled(enabled, bypasses):
             return fn
 
         # Feature is not enabled. Returned the cached function instead:
@@ -138,6 +179,9 @@ def cfg(*operation, **config):
 
     return inner
 
+
 # populdate cfg with helper functions:
+cfg.add_bypass = add_bypass
+cfg.pop_bypass = pop_bypass
 cfg.load_global_config = load_global_config
 cfg.load_global_config_from_file = load_global_config_from_file
